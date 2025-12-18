@@ -164,7 +164,8 @@ gfpgan/*
 checkpoints/*
 models/*
 assets/*
-results/*
+results
+models
 Dockerfile
 start_docker.sh
 start.sh
