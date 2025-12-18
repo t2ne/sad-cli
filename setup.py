@@ -26,6 +26,7 @@ class SadTalkerSetup:
         models_root = self.project_root / "models"
         self.checkpoints_dir = models_root / "checkpoints"
         self.gfpgan_weights_dir = models_root / "gfpgan" / "weights"
+        self.piper_voices_dir = models_root / "voices"
 
     # --- helpers ---------------------------------------------------------
 
@@ -221,6 +222,65 @@ class SadTalkerSetup:
             print("Some model files failed to download. See messages above.")
         return all_ok
 
+    def download_piper_voices(self) -> bool:
+        """Download Piper voice models into models/voices.
+
+        We mirror the URLs used in the legacy tts/setup.py project.
+        """
+
+        self.print_header("Downloading Piper voice models")
+
+        voices_dir = self.piper_voices_dir
+        voices_dir.mkdir(parents=True, exist_ok=True)
+
+        # Tuga voice (official Rhasspy model)
+        tuga_onnx = voices_dir / "pt_PT-tugao-medium.onnx"
+        tuga_json = voices_dir / "pt_PT-tugao-medium.onnx.json"
+
+        # Dii voice (OpenVoiceOS model)
+        dii_onnx = voices_dir / "dii_pt-PT.onnx"
+        dii_json = voices_dir / "dii_pt-PT.onnx.json"
+
+        if all(p.exists() for p in [tuga_onnx, tuga_json, dii_onnx, dii_json]):
+            print("Piper voice models already present (Tuga + Dii).")
+            return True
+
+        # Download URLs
+        tuga_onnx_url = (
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_PT/"
+            "tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx"
+        )
+        tuga_json_url = (
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_PT/"
+            "tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx.json"
+        )
+        dii_onnx_url = "https://huggingface.co/OpenVoiceOS/phoonnx_pt-PT_dii_tugaphone/resolve/main/dii_pt-PT.onnx?download=true"
+
+        ok = True
+        if not self._download_file(tuga_onnx_url, tuga_onnx):
+            ok = False
+        if not self._download_file(tuga_json_url, tuga_json):
+            ok = False
+        if not self._download_file(dii_onnx_url, dii_onnx):
+            ok = False
+
+        # Duplicate Tuga JSON for Dii voice config (legacy behavior)
+        if tuga_json.exists() and not dii_json.exists():
+            try:
+                dii_json.write_bytes(tuga_json.read_bytes())
+                print(f"Copied {tuga_json.name} to {dii_json.name}")
+            except Exception as exc:
+                print(f"Warning: could not copy {tuga_json.name} to {dii_json.name}: {exc}")
+                ok = False
+
+        if ok and all(p.exists() for p in [tuga_onnx, tuga_json, dii_onnx, dii_json]):
+            print("Piper voice models downloaded successfully.")
+            return True
+
+        print("Some Piper voice files are missing. You can retry with: python setup.py --models-only")
+        print(f"Expected directory: {voices_dir}")
+        return False
+
     def verify_setup(self) -> bool:
         self.print_header("Verifying SadTalker setup")
 
@@ -228,6 +288,7 @@ class SadTalkerSetup:
             ("requirements.txt", self.project_root / "requirements.txt"),
             ("models/checkpoints directory", self.checkpoints_dir),
             ("models/gfpgan/weights directory", self.gfpgan_weights_dir),
+            ("models/voices directory", self.piper_voices_dir),
         ]
 
         ok = True
@@ -243,6 +304,10 @@ class SadTalkerSetup:
             self.checkpoints_dir / "SadTalker_V0.0.2_256.safetensors",
             self.checkpoints_dir / "SadTalker_V0.0.2_512.safetensors",
             self.gfpgan_weights_dir / "GFPGANv1.4.pth",
+            self.piper_voices_dir / "pt_PT-tugao-medium.onnx",
+            self.piper_voices_dir / "pt_PT-tugao-medium.onnx.json",
+            self.piper_voices_dir / "dii_pt-PT.onnx",
+            self.piper_voices_dir / "dii_pt-PT.onnx.json",
         ]
         for f in key_files:
             label = f.name
@@ -270,6 +335,7 @@ class SadTalkerSetup:
             return False
 
         self.download_models()
+        self.download_piper_voices()
         all_good = self.verify_setup()
 
         self.print_header("Setup summary")
@@ -289,6 +355,7 @@ def main() -> None:
             setup.install_requirements()
         elif arg == "--models-only":
             setup.download_models()
+            setup.download_piper_voices()
         elif arg == "--verify":
             setup.verify_setup()
         else:

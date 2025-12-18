@@ -19,3 +19,5 @@ gfpgan
 av
 safetensors
 urllib3==1.26.18
+piper-tts
+python-dotenv

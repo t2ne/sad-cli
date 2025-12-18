@@ -1,14 +1,49 @@
-# SadTalker Core
+# SadTalker Core (Piper TTS → SadTalker)
 
-Minimal, cleaned version of the SadTalker project focused on programmatic and CLI usage, without the original Gradio / WebUI and demo scaffolding.
+Minimal, cleaned version of SadTalker focused on a lightweight local workflow:
+
+1. Type a message
+2. Generate speech with Piper TTS
+3. Animate a single avatar image with SadTalker
+
+No WebUI/Gradio, and no speech-to-text (Vosk) in this workflow.
+
+## Features
+
+- Local text-to-speech via Piper (`piper` CLI)
+- High-quality talking-head animation via SadTalker
+- Optional face enhancement via GFPGAN
+- Simple interactive CLI + scriptable `inference.py`
 
 ## What this repo contains
 
-- Core model code under src/ (preprocess, audio2coeff, face renderer, utilities).
-- A CLI entry script inference.py to generate talking-head videos from a single image and an audio file.
-- Model files under models/ (models/checkpoints/ and models/gfpgan/weights/ downloaded by setup.py).
+- Core model code under `src/` (preprocess, audio2coeff, face renderer, utilities).
+- `cli.py`: interactive flow (type text → Piper voice → SadTalker settings → output video).
+- `inference.py`: scriptable entrypoint for SadTalker (image + audio → mp4).
+- Model files under `models/`:
+  - `models/checkpoints/` (SadTalker weights)
+  - `models/gfpgan/weights/` (enhancer weights)
+  - `models/voices/` (Piper voice models)
 
 Optional helper folders (examples, docs, results) can be ignored or deleted in downstream projects; they are not required by the core code.
+
+## Requirements
+
+- Python 3.8–3.10 is recommended (some deps may be flaky on 3.11+).
+- FFmpeg available on PATH (recommended).
+- PyTorch installed manually for your platform (CPU/GPU).
+
+### FFmpeg
+
+This project writes videos; having FFmpeg installed system-wide makes things more reliable.
+
+```bash
+# macOS
+brew install ffmpeg
+
+# Ubuntu/Debian
+sudo apt update && sudo apt install ffmpeg
+```
 
 ## Installation (local project)
 
@@ -33,7 +68,7 @@ hardware/OS specific; if you target a different platform or want GPU
 builds, use the selector on https://pytorch.org to adjust the command.
 
 You can also use the helper script to install requirements and download all
-SadTalker checkpoints and GFPGAN weights in one go:
+SadTalker checkpoints, GFPGAN weights, and Piper voice models in one go:
 
 ```bash
 python setup.py
@@ -43,17 +78,31 @@ Or run only specific steps:
 
 ```bash
 python setup.py --requirements-only  # just pip install -r requirements.txt
-python setup.py --models-only        # just download model files
+python setup.py --models-only        # download model files + Piper voices
 python setup.py --verify             # check that files exist
 ```
 
-## Basic CLI usage
+## Quickstart (interactive)
+
+```bash
+python cli.py
+```
+
+Workflow:
+
+1. Type a message and press Enter
+2. Choose a Piper voice (press Enter to use the default)
+3. Choose SadTalker settings (press Enter to use defaults)
+4. The result is written under `results/<uuid>/<timestamp>.mp4`
+
+## Script usage (SadTalker only)
 
 ```bash
 python inference.py \
   --driven_audio /path/to/audio.wav \
   --source_image /path/to/image.png \
   --result_dir ./results \
+  --save_dir ./results/run-1/2025_12_18_12.00.00 \
   --size 256 \
   --batch_size 1 \
   --preprocess crop \
@@ -62,18 +111,32 @@ python inference.py \
 
 This writes the output video into the results/ directory.
 
-### Interactive helper (presets)
+`--save_dir` is optional; when provided, it forces SadTalker to write all intermediate files into that exact folder.
+This is used by `cli.py` so the generated `piper.wav` is co-located with the run intermediates and gets cleaned up.
 
-For a simple, menu-driven CLI with common presets, you can run:
+## Configuration
+
+Defaults live in `config.py` and can be overridden via a `.env` file.
+
+Key settings:
+
+- `AVATAR_FACE` (default: `models/avatar.jpg`)
+- `PIPER_VOICES_DIR` (default: `models/voices`)
+- `PIPER_VOICE_MALE`, `PIPER_VOICE_FEMALE`, `PIPER_VOICE_DEFAULT`
+- `SADTALKER_PREPROCESS_DEFAULT` (`crop|full|extfull`)
+- `SADTALKER_SIZE_DEFAULT` (`256|512`)
+- `SADTALKER_BATCH_SIZE_DEFAULT` (recommended `1`)
+- `SADTALKER_ENHANCER_DEFAULT` (empty or `gfpgan`)
+
+Example `.env`:
 
 ```bash
-python cli.py
+AVATAR_FACE=models/avatar.jpg
+PIPER_VOICE_DEFAULT=models/voices/dii_pt-PT.onnx
+SADTALKER_PREPROCESS_DEFAULT=crop
+SADTALKER_SIZE_DEFAULT=256
+SADTALKER_ENHANCER_DEFAULT=
 ```
-
-It will ask for the image path, audio path, and whether you want a fast crop preset or a higher-quality full-image preset.
-
-The helper internally builds the correct python inference.py command for you and
-stores each run under a unique subdirectory in results/.
 
 ## Integrating into another project
 
@@ -118,10 +181,4 @@ If you see compiler errors when installing basicsr or similar packages, install 
 - If basicsr or gfpgan fail to install with wheel warnings, upgrade pip/setuptools/wheel in your venv and retry.
 - If you see ModuleNotFoundError for torchvision.transforms.functional_tensor, pin torch/torchvision to 1.12.1 / 0.13.1 as in the README install example.
 - On Apple Silicon (M1/M2), use a PyTorch build with MPS support so the heavy steps can run on the GPU instead of CPU.
-
-### Cleanup notes
-
-- The scripts/ folder (download_models.sh and the old WebUI extension) is not
-  used by the current CLI/core flow; you can delete it if you like.
-- examples/, docs/, and results/ are optional convenience folders; they are not
-  required for inference and can be removed in a downstream project.
+- If `piper` is not found, ensure your venv is activated and `piper-tts` is installed; the CLI should be available as `piper`.

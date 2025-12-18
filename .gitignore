@@ -162,10 +162,11 @@ cython_debug/
 examples/results/*
 gfpgan/*
 checkpoints/*
-models/*
+models/checkpoints/*
+models/gfpgan/
+models/voices/
 assets/*
 results
-models
 Dockerfile
 start_docker.sh
 start.sh
