@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Paths ---
-# If AVATAR_FACE is missing, cli.py will prompt you once.
+# If AVATAR_FACE is missing, main.py will prompt you once.
 # Default under models/ so it can sit next to other local artifacts.
 AVATAR_FACE: str = os.getenv("AVATAR_FACE", "models/avatar_examples/avatar.jpg")
 

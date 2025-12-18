@@ -75,7 +75,6 @@ def main() -> None:
         "2": "Female (Dii)" + (" [default]" if piper_default_choice == "2" else ""),
     }
     voice_choice = prompt_choice("Choose Piper voice", voice_choices, default=piper_default_choice)
-
     voice_model = PIPER_VOICE_MALE if voice_choice == "1" else PIPER_VOICE_FEMALE
 
     # 3) Avatar image (auto-fill from config)
@@ -122,7 +121,6 @@ def main() -> None:
         "2": "Yes, GFPGAN" + (" [default]" if enhancer_default_choice == "2" else ""),
     }
     enhancer_choice = prompt_choice("Use face enhancer (GFPGAN)?", enhancer_choices, default=enhancer_default_choice)
-
     enhancer = "gfpgan" if enhancer_choice == "2" else None
 
     batch_default = SADTALKER_BATCH_SIZE_DEFAULT if str(SADTALKER_BATCH_SIZE_DEFAULT).isdigit() else "1"
@@ -151,20 +149,17 @@ def main() -> None:
     # 5) Generate wav via Piper inside the generated save_dir so it is
     # cleaned up with the other intermediate files.
     wav_path = str(save_dir / "piper.wav")
-    try:
-        if not Path(voice_model).exists():
-            raise FileNotFoundError(
-                f"Piper voice model not found: {voice_model}\n"
-                "Run: python setup.py --models-only (after we add Piper voices), or place the .onnx under models/voices/"
-            )
-        piper_speak(text, wav_path, voice_model)
-    except Exception as exc:
-        print(f"Failed to generate audio with Piper: {exc}")
-        raise
+    if not Path(voice_model).exists():
+        raise FileNotFoundError(
+            f"Piper voice model not found: {voice_model}\n"
+            "Run: python setup.py --models-only, or place the .onnx under models/voices/"
+        )
+    piper_speak(text, wav_path, voice_model)
 
     cmd = [
         sys.executable,
-        "inference.py",
+        "-m",
+        "src.inference",
         "--driven_audio",
         str(wav_path),
         "--source_image",
@@ -193,7 +188,6 @@ def main() -> None:
 
     subprocess.check_call(cmd, cwd=str(PROJECT_ROOT))
 
-    # inference.py writes result_dir/timestamp.mp4; search under this run's result_dir
     mp4_files = sorted(result_dir.rglob("*.mp4"), key=os.path.getmtime)
     if mp4_files:
         print(f"\nDone. Generated video: {mp4_files[-1]}")

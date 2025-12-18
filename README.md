@@ -13,13 +13,13 @@ No WebUI/Gradio, and no speech-to-text (Vosk) in this workflow.
 - Local text-to-speech via Piper (`piper` CLI)
 - High-quality talking-head animation via SadTalker
 - Optional face enhancement via GFPGAN
-- Simple interactive CLI + scriptable `inference.py`
+- Simple interactive CLI + scriptable SadTalker runner (`python -m src.inference`)
 
 ## What this repo contains
 
 - Core model code under `src/` (preprocess, audio2coeff, face renderer, utilities).
-- `cli.py`: interactive flow (type text → Piper voice → SadTalker settings → output video).
-- `inference.py`: scriptable entrypoint for SadTalker (image + audio → mp4).
+- `main.py`: interactive flow (type text → Piper voice → SadTalker settings → output video).
+- `src/inference.py`: scriptable entrypoint for SadTalker (image + audio → mp4).
 - Model files under `models/`:
   - `models/checkpoints/` (SadTalker weights)
   - `models/gfpgan/weights/` (enhancer weights)
@@ -85,7 +85,7 @@ python setup.py --verify             # check that files exist
 ## Quickstart (interactive)
 
 ```bash
-python cli.py
+python main.py
 ```
 
 Workflow:
@@ -98,7 +98,7 @@ Workflow:
 ## Script usage (SadTalker only)
 
 ```bash
-python inference.py \
+python -m src.inference \
   --driven_audio /path/to/audio.wav \
   --source_image /path/to/image.png \
   --result_dir ./results \
@@ -109,14 +109,16 @@ python inference.py \
   --enhancer gfpgan  # optional, requires GFPGAN weights
 ```
 
+For backwards compatibility, `python inference.py ...` also works (shim).
+
 This writes the output video into the results/ directory.
 
 `--save_dir` is optional; when provided, it forces SadTalker to write all intermediate files into that exact folder.
-This is used by `cli.py` so the generated `piper.wav` is co-located with the run intermediates and gets cleaned up.
+This is used by `main.py` so the generated `piper.wav` is co-located with the run intermediates and gets cleaned up.
 
 ## Configuration
 
-Defaults live in `config.py` and can be overridden via a `.env` file.
+Defaults live in `config.py` and can be overridden via a `.env` file or changed in the file itself.
 
 Key settings:
 
@@ -143,19 +145,19 @@ SADTALKER_ENHANCER_DEFAULT=
 For a Flask / chatbot or other backend service:
 
 - Treat this repo as a local package: pip install -e . inside your main project venv.
-- Mirror the logic in inference.py inside your own service layer, or wrap it in a small helper that returns the generated video path.
+- Mirror the logic in `src/inference.py` inside your own service layer, or wrap it in a small helper that returns the generated video path.
 - Ensure the models/checkpoints/ directory is available in your deployed environment and points to the correct model weights.
 
 At runtime you generally:
 
 1. Save the user image and audio to disk.
-2. Call the inference script (directly, via cli.py, or via a thin Python wrapper) with those paths and a result_dir you control.
+2. Call the inference script (directly, via main.py, or via a thin Python wrapper) with those paths and a result_dir you control.
 3. Return the resulting mp4 path or URL from your Flask API so your chatbot can display or link it.
 
 If you install this repo into another project with pip install -e ., you can
 import the modules directly (e.g. import src.utils.preprocess) and build a
 generate_talking_video(...) helper in that project that mirrors what
-inference.py does.
+`src/inference.py` does.
 
 ### Windows notes
 
@@ -171,7 +173,7 @@ pip install "torch==1.12.1" "torchvision==0.13.1" "torchaudio==0.12.1" `
 
 pip install -r requirements.txt
 python setup.py --models-only
-python cli.py
+python main.py
 ```
 
 If you see compiler errors when installing basicsr or similar packages, install Build Tools for Visual Studio first so you have a working C/C++ toolchain.
